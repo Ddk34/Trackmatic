@@ -9,6 +9,8 @@ namespace Trackmatic.SalesTaxes
 {
     public class GoodsFactory
     {
+        private static readonly Regex _parse = new Regex(@"^(\d+) ([\w ]+) at (\d+\.\d{2})$");
+
         public static IEnumerable<Goods> Parse(IEnumerable<string> items)
         {
             foreach (var item in items)
@@ -17,20 +19,29 @@ namespace Trackmatic.SalesTaxes
 
         public static Goods Parse(string item)
         {
-            var firstSpace = item.IndexOf(' ');
-            var quantity = Convert.ToInt32(item.Substring(0, firstSpace));
+            var matches = _parse.Matches(item);
 
-            var _at_ = item.IndexOf(" at ");
-            firstSpace++;
-            var description = item.Substring(firstSpace, _at_ - firstSpace);
+            if (matches.Count != 1)
+                throw new Exception($"Invalid Goods line format: \"{item}\"");
 
-            _at_ += " at ".Length;
-            var unitPrice = Convert.ToDecimal(item.Substring(_at_, item.Length - _at_));
+            if (matches[0].Groups.Count != 4)
+                throw new Exception($"Invalid Goods line format: \"{item}\"");
 
-            return new Goods(GetType(item), description, unitPrice)
+            int quantity = 0;
+            if (!int.TryParse(matches[0].Groups[1].Value, out quantity))
+                throw new Exception($"Invalid Goods line format: \"{item}\"");
+
+            string description = matches[0].Groups[2].Value;
+
+            decimal unitPrice = 0m;
+            
+            if (!decimal.TryParse(matches[0].Groups[3].Value, out unitPrice))
+                throw new Exception($"Invalid Goods line format: \"{item}\"");
+
+            return new Goods(GetType(description), description, unitPrice)
             {
                 Quantity = quantity,
-                Imported = item.Contains("imported")
+                Imported = description.Contains("imported")
             };
         }
 
